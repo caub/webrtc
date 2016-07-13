@@ -4,13 +4,20 @@ var express = require('express');
 var passport = require('passport');
 var LocalStrategy   = require('passport-local').Strategy;
 var GoogleStrategy = require('passport-google-oauth20').Strategy;
-var {googleAuth} = require('./config.json');
+// var {googleAuth} = require('./config.json');
 var sessionParser = require('express-session')({ 
 	secret: 'keyboard cat', 
 	resave: false, 
 	saveUninitialized: false,
 	//cookie: { domain:'localhost'},
 });
+var PORT = process.env.PORT || 3000;
+// var https = require('https'); // http one is created by default by express
+// var fs = require('fs');
+// var options = {
+// 	key: fs.readFileSync('private.key'),
+// 	cert: fs.readFileSync('certificate.crt')
+// }; 
 
 var app = express();
 
@@ -28,16 +35,16 @@ passport.use(new LocalStrategy({usernameField: 'email'},
 	}
 ));
 
-passport.use(new GoogleStrategy({
-		clientID: googleAuth.clientID,
-		clientSecret: googleAuth.clientSecret,
-		callbackURL: googleAuth.callbackURL
-	},
-	function(accessToken, refreshToken, details, profile, cb) {
-		if (profile.emails.length===0) throw new Error('missing emails');
-		return cb(null, profile.emails[0].value);
-	}
-));
+// passport.use(new GoogleStrategy({
+// 		clientID: googleAuth.clientID,
+// 		clientSecret: googleAuth.clientSecret,
+// 		callbackURL: googleAuth.callbackURL
+// 	},
+// 	function(accessToken, refreshToken, details, profile, cb) {
+// 		if (profile.emails.length===0) throw new Error('missing emails');
+// 		return cb(null, profile.emails[0].value);
+// 	}
+// ));
 
 app.get('/auth/logout', (req, res)=>{
 	req.logout();
@@ -54,15 +61,15 @@ app.post('/auth',
 
 
 
-app.get('/auth/google',
-	passport.authenticate('google', { scope: ['email'] })
-);
+// app.get('/auth/google',
+// 	passport.authenticate('google', { scope: ['email'] })
+// );
 
-app.get('/auth/google/callback', 
-	passport.authenticate('google', { failureRedirect: '/auth?failure=google' }),
-	function(req, res) {
-		res.redirect('/');
-});
+// app.get('/auth/google/callback', 
+// 	passport.authenticate('google', { failureRedirect: '/auth?failure=google' }),
+// 	function(req, res) {
+// 		res.redirect('/');
+// });
 
 
 passport.serializeUser(function(user, cb) {
@@ -75,9 +82,10 @@ passport.deserializeUser(function(email, cb) {
 
 app.use(express.static('.'));
 
-var server = app.listen(parseInt(process.argv[2])||3000, function(){
+var server = app.listen(PORT, function(){ // should use a port > 1024 ofc
 	console.log('Listening on ' + this.address().port)
 });
+// https.createServer(options, app).listen(443); // just tests, should use nginx actually
 
 var wss = new WebSocketServer({server});
 
@@ -124,8 +132,8 @@ room: ${req.params.room}, user: ${req.user} <a href="/auth/logout">sign out</a>
 `<form action="/auth" method="post">
 	<input name="email" placeholder="email (or sitename)" value="demo${Math.floor(100*Math.random())}">
 	<input name="password" placeholder="password" value="demo">
-	<input type="submit" value="sign in"> <a href="/auth/google">sign in with google</a>
-</form>`
+	<input type="submit" value="sign in">
+</form>` // <a href="/auth/google">sign in with google</a>
 )
 })
 

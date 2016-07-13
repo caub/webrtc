@@ -4,8 +4,7 @@ var ws = new WebSocket(location.href.replace('http','ws'));
 
 var peers = new Map();// id -> {video, peerConn} map of participants 
 
-// navigator.getUserMedia({ audio: true, video: true },stream=>localVideo.src = URL.createObjectURL(stream));
-
+var getMedia = cs => navigator.mediaDevices.getUserMedia(cs);
 
 var localVideo = app.appendChild(h('video', {autoplay:'', muted:''}));
 
@@ -13,13 +12,14 @@ var startButton = app.appendChild(h('button', 'Join'))
 
 var videos = app.appendChild(h('div'));
 
-navigator.getUserMedia({audio: true, video: true}, stream=>localVideo.src=URL.createObjectURL(stream), console.log)
+getMedia({video: true}).then(stream=>localVideo.src=URL.createObjectURL(stream)).catch(console.log)
 
+var lastTime=Date.now()
 
 startButton.onclick=e=>{// send offer to all peers in the room
 	for (let [u, {pc}] of peers){
 		pc.createOffer(offer=>{
-			console.log('offer', offer);
+			// console.log('offer', offer);
 			pc.setLocalDescription(offer, _=>ws.send(JSON.stringify({offer, from:peers.id, to:u})), console.log);
 		}, console.log);
 	}
@@ -27,7 +27,7 @@ startButton.onclick=e=>{// send offer to all peers in the room
 }
 
 ws.onmessage = ({data})=>{
-	console.log('received', data)
+	// console.log('received', data)
 	const {type, id, users, candidate, offer, answer, from, to} = JSON.parse(data);
 
 	if (type=='join'){ // a change happened in participants of the room
@@ -39,15 +39,15 @@ ws.onmessage = ({data})=>{
 				const video = videos.appendChild(h('video', {autoplay:''}));
 				const pc = new RTCPeerConnection(pcCfg);
 				pc.onicecandidate = e => {
-					console.log('ice', e, u, peers.id);
+					// console.log('ice', e, u, peers.id);
 					e && e.candidate && ws.send(JSON.stringify({candidate: e.candidate, from:peers.id, to:u}))
 				};
-				pc.onaddstream = e=>{
-					console.log('received stream', e);
-					video.src = URL.createObjectURL(e.stream);
+				pc.ontrack = e=>{
+					// console.log('received stream', e);
+					if (e.streams[0]) video.src = URL.createObjectURL(e.streams[0]);
 				}
 				peers.set(u, {video, pc})
-				navigator.getUserMedia({audio: true, video: true}, stream=>pc.addStream(stream), console.log)
+				getMedia({audio: true, video: true}).then(stream=>pc.addStream(stream)).catch(console.log)
 			}
 		}
 		for (let [u, {pc, video}] of peers){
@@ -62,11 +62,11 @@ ws.onmessage = ({data})=>{
 	}	else if (offer && peers.id==to && peers.get(from)) {
 		// console.log('received offer', from);
 		const {pc, video} = peers.get(from);
-		pc.onaddstream = e=>{
-			console.log('received stream', e);
-			video.src = URL.createObjectURL(e.stream);
+		pc.ontrack = e=>{
+			// console.log('received stream2', e);
+			if (e.streams[0]) video.src = URL.createObjectURL(e.streams[0]);
 		}
-		navigator.getUserMedia({audio: true, video: true}, stream=>pc.addStream(stream), console.log)
+		getMedia({audio: true, video: true}).then(stream=>pc.addStream(stream)).catch(console.log)
 
 		// todo promisify
 		pc.setRemoteDescription(new RTCSessionDescription(offer), function() {
@@ -91,11 +91,12 @@ ws.onmessage = ({data})=>{
 			if (pc.signalingState!=='closed')
 				pc.addIceCandidate(new RTCIceCandidate(candidate))
 
-	} 
+	}
+	lastTime=Date.now()
 	
 }
 // ws.onopen = e=>{console.log('open', e);}
-ws.onclose = e=>{console.log('close', e)}
+ws.onclose = e=>{console.log('close', e, Date.now()-lastTime)}
 ws.onerror = e=>{console.log('err', e)} // todo restart with setInterval
 
 

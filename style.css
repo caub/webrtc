@@ -7,6 +7,7 @@ video {
 	border: 1px solid;
 	margin: 1em;
 	width: 300px;
+	filter: blur(2px) grayscale(.5)
 }
 
 video[muted] {

@@ -3,6 +3,12 @@
   "version": "1.0.0",
   "description": "webrtc playground",
   "main": "server.js",
+  "engines": {
+    "node": "6.2.0"
+  },
+  "scripts": {
+    "start": "node server"
+  },
   "dependencies": {
     "body-parser": "^1.15.2",
     "cookie-parser": "^1.4.3",
