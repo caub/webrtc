@@ -1,0 +1,16 @@
+#app {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+video {
+	border: 1px solid;
+	margin: 1em;
+	width: 300px;
+}
+
+video[muted] {
+	border: 1px dashed;
+}
+
+div {align-self: stretch;}
