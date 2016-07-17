@@ -11,13 +11,19 @@ var sessionParser = require('express-session')({
 	saveUninitialized: false,
 	//cookie: { domain:'localhost'},
 });
-var PORT = process.env.PORT || 3000;
+var {md5, pbkdf2, parseUrl} = require('./utils');
+var {Pool} = require('pg');
+var {PORT=3000, DATABASE_URL='postgres://test:test@localhost:5432/dev'} = process.env;
+
+
 // var https = require('https'); // http one is created by default by express
 // var fs = require('fs');
 // var options = {
 // 	key: fs.readFileSync('private.key'),
 // 	cert: fs.readFileSync('certificate.crt')
-// }; 
+// };
+
+var pool = new Pool(parseUrl(DATABASE_URL));
 
 var app = express();
 
@@ -30,10 +36,24 @@ app.use(passport.session());
 passport.use(new LocalStrategy({usernameField: 'email'},
 	function(email, password, done) {
 		// console.log('authing', email, password);
-		// any mail/pw is good
-		return done(null, email);
+		pool.query(`SELECT id, email FROM "user" WHERE email=$1 AND password=$2 LIMIT 1`, [email, md5(password)])
+		.then(res=>{
+			done(null, res.rows[0])
+		});
 	}
 ));
+
+app.post('/auth', function(req, res){
+	const {email, password} = req.body;
+	const {pathname} = url.parse(req.headers.referer||'/');
+	if (!password) 
+		return res.redirect(401, pathname+'?err=emptypassword');
+	if (!email) 
+		return res.redirect(401, pathname+'?err=emptyemail');
+	pool.query(`INSERT INTO "user" (email, password) VALUES ($1, $2)`, [email, md5(password)])
+	.then(_=>res.redirect(pathname+'?welcome'))
+	.catch(err=>res.redirect(401, pathname+'?err='+err))
+});
 
 // passport.use(new GoogleStrategy({
 // 		clientID: googleAuth.clientID,
@@ -46,18 +66,22 @@ passport.use(new LocalStrategy({usernameField: 'email'},
 // 	}
 // ));
 
-app.get('/auth/logout', (req, res)=>{
+app.get('/logout', (req, res)=>{
 	req.logout();
 	res.redirect(req.headers.referer||'/');
 });
 
-app.post('/auth', 
-	passport.authenticate('local', { failureRedirect: '/auth?failure' }),
-	function(req, res) {
-		res.redirect(req.headers.referer||'/');
-	}
-);
-
+app.post('/login', function(req, res, next) {
+	passport.authenticate('local', function(err, user, info) {
+		if (err) return next(err);
+		const {pathname} = url.parse(req.headers.referer||'/');
+		if (!user) return res.redirect(pathname+'?err=wrong credentials');
+		req.logIn(user, function(err) {
+			if (err) return next(err);
+			return res.redirect(pathname);
+		});
+	})(req, res, next);
+});
 
 
 
@@ -119,22 +143,24 @@ wss.on('connection', function(ws){
 
 
 app.get(['/', '/:room'], (req, res)=>{
+	const {err} = req.query;
 	res.send(
-req.user?
+		req.user?
 `
 <link rel="icon" href="data:;base64,iVBORw0KGgo=">
 <link href="/style.css" rel="stylesheet" type="text/css">
-room: ${req.params.room}, user: ${req.user} <a href="/auth/logout">sign out</a>
+room: ${req.params.room}, user: ${JSON.stringify(req.user)} <a href="/logout">sign out</a>
 <div id="app"></div>
 <script src="//webrtc.github.io/adapter/adapter-latest.js"></script>
 <script src="/client.js"></script>
 `:
-`<form action="/auth" method="post">
-	<input name="email" placeholder="email (or sitename)" value="demo${Math.floor(100*Math.random())}">
-	<input name="password" placeholder="password" value="demo">
+`<form action="/login" method="post">
+	<input name="email" placeholder="email/username" required>
+	<input name="password" placeholder="password" required>
 	<input type="submit" value="sign in">
-</form>` // <a href="/auth/google">sign in with google</a>
-)
+	<input type="submit" formaction="/auth" value="sign up">
+</form>${err?'error: '+err:''}` // <a href="/auth/google">sign in with google</a>
+	)
 })
 
 
