@@ -1,6 +1,6 @@
 var pcCfg = {iceServers: [{urls: 'stun:stun.services.mozilla.com'}, {urls: 'stun:stun.l.google.com:19302'}]};
 
-var ws = new WebSocket(location.href.replace('http','ws'));
+var ws = new WebSocket(location.href.replace('http', 'ws'));
 
 var peers = new Map();// id -> {video, peerConn} map of participants 
 
@@ -12,7 +12,12 @@ var startButton = app.appendChild(h('button', 'Join'))
 
 var videos = app.appendChild(h('div'));
 
-getMedia({video: true}).then(stream=>localVideo.src=URL.createObjectURL(stream)).catch(console.log)
+var constraints = {
+	audio: true, 
+	video: true
+};
+
+getMedia(constraints).then(stream=>localVideo.src=URL.createObjectURL(stream)).catch(console.log)
 
 var lastTime=Date.now()
 
@@ -90,6 +95,7 @@ ws.onmessage = ({data})=>{
 		for (let [u, {pc}] of peers)
 			if (pc.signalingState!=='closed')
 				pc.addIceCandidate(new RTCIceCandidate(candidate))
+					.catch(e=>console.log('ice error', e))
 
 	}
 	lastTime=Date.now()

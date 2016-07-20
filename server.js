@@ -23,7 +23,7 @@ var {PORT=3000, DATABASE_URL='postgres://test:test@localhost:5432/dev'} = proces
 // 	cert: fs.readFileSync('certificate.crt')
 // };
 
-var pool = new Pool(parseUrl(DATABASE_URL));
+// var pool = new Pool(parseUrl(DATABASE_URL));
 
 var app = express();
 
@@ -33,27 +33,28 @@ app.use(sessionParser);
 app.use(passport.initialize());
 app.use(passport.session());
 
-passport.use(new LocalStrategy({usernameField: 'email'},
+passport.use(new LocalStrategy({usernameField: 'email'}, // sign in
 	function(email, password, done) {
 		// console.log('authing', email, password);
-		pool.query(`SELECT id, email FROM "user" WHERE email=$1 AND password=$2 LIMIT 1`, [email, md5(password)])
-		.then(res=>{
-			done(null, res.rows[0])
-		});
+		// pool.query(`SELECT id, email FROM "user" WHERE email=$1 AND password=$2 LIMIT 1`, [email, md5(password)])
+		// .then(res=>{
+		// 	done(null, res.rows[0])
+		// });
+		done(null, email) // allow anyone, because we don't really care for now
 	}
 ));
 
-app.post('/auth', function(req, res){
-	const {email, password} = req.body;
-	const {pathname} = url.parse(req.headers.referer||'/');
-	if (!password) 
-		return res.redirect(401, pathname+'?err=emptypassword');
-	if (!email) 
-		return res.redirect(401, pathname+'?err=emptyemail');
-	pool.query(`INSERT INTO "user" (email, password) VALUES ($1, $2)`, [email, md5(password)])
-	.then(_=>res.redirect(pathname+'?welcome'))
-	.catch(err=>res.redirect(401, pathname+'?err='+err))
-});
+// app.post('/auth', function(req, res){ // for registering/signin up new users
+// 	const {email, password} = req.body;
+// 	const {pathname} = url.parse(req.headers.referer||'/');
+// 	if (!password) 
+// 		return res.redirect(401, pathname+'?err=emptypassword');
+// 	if (!email) 
+// 		return res.redirect(401, pathname+'?err=emptyemail');
+// 	pool.query(`INSERT INTO "user" (email, password) VALUES ($1, $2)`, [email, md5(password)])
+// 	.then(_=>res.redirect(pathname+'?welcome'))
+// 	.catch(err=>res.redirect(401, pathname+'?err='+err))
+// });
 
 // passport.use(new GoogleStrategy({
 // 		clientID: googleAuth.clientID,
@@ -106,10 +107,11 @@ passport.deserializeUser(function(email, cb) {
 
 app.use(express.static('.'));
 
-var server = app.listen(PORT, function(){ // should use a port > 1024 ofc
+// var server = https.createServer(options, app).listen(PORT); // should use nginx actually
+
+var server = app.listen(PORT, function(){
 	console.log('Listening on ' + this.address().port)
 });
-// https.createServer(options, app).listen(443); // just tests, should use nginx actually
 
 var wss = new WebSocketServer({server});
 
@@ -155,11 +157,10 @@ room: ${req.params.room}, user: ${JSON.stringify(req.user)} <a href="/logout">si
 <script src="/client.js"></script>
 `:
 `<form action="/login" method="post">
-	<input name="email" placeholder="email/username" required>
-	<input name="password" placeholder="password" required>
+	<input name="email" placeholder="email/username" value="demo" required>
+	<input name="password" type="hidden" placeholder="password" value="demo" required>
 	<input type="submit" value="sign in">
-	<input type="submit" formaction="/auth" value="sign up">
-</form>${err?'error: '+err:''}` // <a href="/auth/google">sign in with google</a>
+</form>${err?'error: '+err:''}` // <a href="/auth/google">sign in with google</a>  <input type="submit" formaction="/auth" value="sign up">
 	)
 })
 
