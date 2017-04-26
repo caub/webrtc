@@ -13,11 +13,12 @@ var startButton = app.appendChild(h('button', 'Join'))
 var videos = app.appendChild(h('div'));
 
 var constraints = {
-	audio: true, 
-	video: true
+	video: true, audio: true,
+	offerToReceiveAudio: 1,
+	offerToReceiveVideo: 1
 };
 
-getMedia(constraints).then(stream=>localVideo.src=URL.createObjectURL(stream)).catch(console.log)
+getMedia(constraints).then(stream=> {localVideo.srcObject=stream}).catch(console.log)
 
 var lastTime=Date.now()
 
@@ -49,7 +50,7 @@ ws.onmessage = ({data})=>{
 				};
 				pc.ontrack = e=>{
 					// console.log('received stream', e);
-					if (e.streams[0]) video.src = URL.createObjectURL(e.streams[0]);
+					if (e.streams[0]) video.srcObject = e.streams[0];
 				}
 				peers.set(u, {video, pc})
 				getMedia({audio: true, video: true}).then(stream=>pc.addStream(stream)).catch(console.log)
@@ -69,7 +70,7 @@ ws.onmessage = ({data})=>{
 		const {pc, video} = peers.get(from);
 		pc.ontrack = e=>{
 			// console.log('received stream2', e);
-			if (e.streams[0]) video.src = URL.createObjectURL(e.streams[0]);
+			if (e.streams[0]) video.srcObject = e.streams[0];
 		}
 		getMedia({audio: true, video: true}).then(stream=>pc.addStream(stream)).catch(console.log)
 
@@ -92,10 +93,12 @@ ws.onmessage = ({data})=>{
 
 	} else if (candidate){
 		// console.log('candidate', candidate, from, to);
-		for (let [u, {pc}] of peers)
+		for (let [u, {pc}] of peers) {
+
 			if (pc.signalingState!=='closed')
 				pc.addIceCandidate(new RTCIceCandidate(candidate))
-					.catch(e=>console.log('ice error', e))
+					.catch(e=>console.log('ice error2', e)) // todo see why there are DOMException: Error processing ICE candidate + broken on FF
+		}
 
 	}
 	lastTime=Date.now()

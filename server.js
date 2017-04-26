@@ -138,7 +138,7 @@ wss.on('connection', function(ws){
 			const users = [...clients.values()];
 			clients.forEach((i, c)=> c.send(JSON.stringify({type:'join', id:i, users})));
 		};
-		broadcast()
+		broadcast();
 	});
 
 });
